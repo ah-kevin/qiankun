@@ -6,7 +6,7 @@ module.exports = {
   devtool: 'source-map',
   devServer: {
     open: true,
-    port: '7099',
+    port: process.env.MODE === 'multiple' ? '7099' : '7088',
     clientLogLevel: 'warning',
     disableHostCheck: true,
     compress: true,
