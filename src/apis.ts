@@ -42,26 +42,54 @@ const autoDowngradeForLowVersionBrowser = (configuration: FrameworkConfiguration
   return configuration;
 };
 
+/**
+ * 注册微应用，基于路由配置
+ * @param apps = [
+ * {
+ *   "name": "vue",
+ *   "entry": "//localhost:7101",
+ *   "container": "#subapp-viewport",
+ *   "activeRule": "/vue"
+ * }
+ * ]
+ * @param lifeCycles = {...各个生命周期方法对象}
+ */
 export function registerMicroApps<T extends ObjectType>(
   apps: Array<RegistrableApp<T>>,
   lifeCycles?: FrameworkLifeCycles<T>,
 ) {
   // Each app only needs to be registered once
+  // 防止微应用重复注册，得到所有没有被注册的微应用列表
   const unregisteredApps = apps.filter((app) => !microApps.some((registeredApp) => registeredApp.name === app.name));
 
+  // all = 已注册+未注册的（将要被注册的）
   microApps = [...microApps, ...unregisteredApps];
 
+  // 注册每一个微应用
   unregisteredApps.forEach((app) => {
+    // 注册时提供的微应用基本信息
     const { name, activeRule, loader = noop, props, ...appConfig } = app;
 
+    // 调用 single-spa 的 registerApplication 方法注册微应用
     registerApplication({
       name,
+      // 微应用的加载方法，Promise<生命周期方法组成的对象>
       app: async () => {
+        // 加载微应用时主应用显示 loading 状态
         loader(true);
+        // 这句可以忽略，目的是在 single-spa 执行这个加载方法时让出线程，让其它微应用的加载方法都开始执行
         await frameworkStartedDefer.promise;
 
+        // 核心、精髓、难点所在，负责加载微应用，然后一大堆处理，返回 bootstrap、mount、unmount、update 这个几个生命周期
         const { mount, ...otherMicroAppConfigs } = (
-          await loadApp({ name, props, ...appConfig }, frameworkConfiguration, lifeCycles)
+          await loadApp(
+            // 微应用的配置信息
+            { name, props, ...appConfig },
+            // start 方法执行时设置的配置对象
+            frameworkConfiguration,
+            // 注册微应用时提供的全局生命周期对象
+            lifeCycles,
+          )
         )();
 
         return {
@@ -69,7 +97,9 @@ export function registerMicroApps<T extends ObjectType>(
           ...otherMicroAppConfigs,
         };
       },
+      // 微应用的激活条件
       activeWhen: activeRule,
+      // 传递给微应用的 props
       customProps: props,
     });
   });
