@@ -29,6 +29,7 @@ module.exports = {
       warnings: false,
       errors: true,
     },
+    // 设置跨域，因为主应用需要通过 fetch 去获取微应用引入的静态资源的，所以必须要求这些静态资源支持跨域
     headers: {
       'Access-Control-Allow-Origin': '*',
     },
